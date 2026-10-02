@@ -1,0 +1,33 @@
+# Node / frontend
+node_modules/
+dist/
+dist-oss/
+.vite/
+
+# Rust / Tauri
+target/
+app/windows/target/
+app/windows/gen/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# ===== 运行时数据 / 真实密钥（含明文口令，切勿入库） =====
+server/signaling-server/signaling.config.json
+server/signaling-server/data/
+
+# ===== TypeScript 编译产物（public/signaling.ts 为源） =====
+public/*.js
+
+# ===== npm lock 本机差异（libc 字段噪声），保持仓库原版本 =====
+app/web/package-lock.json
+app/web/vite.config.ts.timestamp-*.mjs

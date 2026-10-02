@@ -1,0 +1,24 @@
+{
+  "name": "p2p-signaling-server",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "token": "node scripts/token-admin.mjs",
+    "check:stun": "node scripts/check-stun.mjs",
+    "start": "node dist/server/signaling-server/src/index.js",
+    "dev": "npm run build && npm start",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.0"
+  }
+}

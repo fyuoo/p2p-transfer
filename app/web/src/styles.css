@@ -1,0 +1,377 @@
+:root {
+  --bg: #f7f4ef;
+  --card: #fffdf9;
+  --fg: #302b26;
+  --muted: #82786e;
+  --accent: #d77a4f;
+  --ok: #4f9b78;
+  --x: #ca6658;
+  --line: #e8ded3;
+  /* Section background colors: only the "top bar" and "task sections" are tinted; everything else stays white cards (--card).
+     Previously both the top bar (--band) and the connection panel/diagnostics (--panel) were tinted; their lightness was too close,
+     making the two top areas look almost the same color; now --panel is dropped, leaving only 2 semantic tints. */
+  --band: #f1e7d9;       /* Top bar strip (the only neutral tint, one shade lighter than before) */
+  --send-tint: #fbeee2;  /* Send task section (warm orange, echoes ↑) */
+  --recv-tint: #eaf1ec;  /* Receive task section (pale green, echoes ↓) */
+  /* Progress-bar shimmer (highlight) colors: keyed by state; desktop and mobile browsers share the same set of values.
+     ⚠ Changing these here must be mirrored in the other file's :root (styles.css / mobile.css each keep a copy). */
+  --shine-active: rgba(255, 238, 219, 0.82);  /* Active: warm white, echoes the orange bar */
+  --shine-writing: rgba(233, 250, 240, 0.82); /* Writing: pale green-white, same family as the green bar (mobile has this state) */
+  --shine-paused: rgba(240, 246, 255, 0.90);  /* Paused: cool white, compensates for the dark blue-gray bar */
+}
+* { box-sizing: border-box; }
+/* Hidden utility class: must carry !important — because rules like .task-toggle set display,
+   overriding the browser default [hidden]{display:none}, which would leave JS-set hidden elements still visible. */
+[hidden], .hidden { display: none !important; }
+html, body { margin: 0; }
+body {
+  font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg); color: var(--fg); font-size: 13px;
+}
+#app { width: min(100% - 32px, 980px); margin: 28px auto; }
+
+header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; background: var(--band); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; }
+.brand { font-weight: 700; font-size: 18px; }
+.pills { display: flex; gap: 6px; }
+.pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--line); color: var(--muted); }
+.pill.ok { color: var(--ok); }
+/* Top-bar status pill: color follows data-state (engine-fact driven, see ui/status-level.ts).
+   Only short status words go here — the full text goes into the title and the banner below, so the top bar is no longer stretched/truncated by long sentences. */
+.status { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 10px; border-radius: 999px; background: #f0e7df; color: var(--muted); white-space: nowrap; }
+.status .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+.status[data-state="ok"] { background: #e3f1ea; color: var(--ok); }
+.status[data-state="busy"] { background: #fbe9dd; color: var(--accent); }
+/* Connection-error banner: pinned as a strip under the top bar, giving the full reason + a shortcut to settings.
+   Normally hidden (the [hidden] utility class carries !important), so it takes no space and causes no layout shift. */
+.status-banner { display: flex; align-items: center; gap: 8px; margin: -6px 0 14px; padding: 8px 12px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; background: var(--card); font-size: 12px; color: var(--fg); }
+.status-banner[data-level="warn"] { border-color: #f3cdb4; border-left-color: var(--accent); background: #fffaf4; color: #8a5a3a; }
+.status-banner[data-level="error"] { border-color: #f7c1c1; border-left-color: var(--x); background: #fcebeb; color: #8f2b26; }
+.status-banner .sb-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+.status-banner .sb-text { flex: 1; min-width: 0; line-height: 1.5; }
+.status-banner .sb-act { flex: none; font: inherit; font-size: 11px; padding: 3px 9px; border: 1px solid currentColor; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; white-space: nowrap; }
+.status-banner .sb-act:hover { background: #fffdf9; }
+.status-banner .sb-x { flex: none; font: inherit; font-size: 15px; line-height: 1; padding: 0 5px; border: 0; background: transparent; color: inherit; opacity: .55; cursor: pointer; }
+.status-banner .sb-x:hover { opacity: 1; }
+
+.cards { display: flex; flex-direction: column; gap: 12px; }
+
+/* Two-column layout: left column = devices/this machine, right column = the selected peer's transfer UI (device isolation) */
+.layout { display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 20px; align-items: stretch; }
+.sidebar { display: flex; flex-direction: column; gap: 12px; }
+.main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.device-head { font-size: 13px; padding: 2px 4px; }
+.device-head b { color: var(--fg); }
+.paircode { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 20px; letter-spacing: .1em; color: var(--accent); margin-top: 2px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; box-shadow: 0 10px 28px #7d58410d; }
+.label { font-size: 12px; color: var(--muted); margin-bottom: 8px; letter-spacing: .04em; }
+.self { font-size: 13px; }
+.hint { font-size: 12px; color: var(--muted); }
+label { display: flex; flex-direction: column; gap: 5px; color: var(--muted); font-size: 12px; margin-top: 10px; }
+input, select { width: 100%; min-height: 34px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--fg); padding: 6px 9px; font: inherit; }
+input:focus, select:focus { outline: 2px solid #d77a4f33; border-color: var(--accent); }
+details { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px; }
+summary { cursor: pointer; color: var(--muted); font-size: 12px; user-select: none; }
+.advanced-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; }
+.hero { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.hero-copy { min-width: 0; }
+.hero-copy h1 { margin: 0 0 6px; font-size: 22px; }
+.hero-copy p { margin: 0; color: var(--muted); }
+.hero-action { min-width: 180px; }
+.empty { color: var(--muted); padding: 18px 4px; text-align: center; }
+.section-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.section-title .label { margin: 0; }
+
+.peers { display: flex; flex-direction: column; }
+/* Dividers between devices: mimics the Rust side's "scrolling list + row separators" device bar, dropping the raised cards,
+   switching to flat rows + a 1px bottom line (last item has none); hover/selected use background tint, selected adds a left accent bar. */
+.peer { width:100%; text-align:left; display: flex; align-items: center; gap: 9px; padding: 11px 6px; background: transparent; border: 0; border-bottom: 1px solid var(--line); cursor:pointer; font:inherit; color:var(--fg); }
+.peer:last-child { border-bottom: 0; }
+.peer:hover { background:#fff3e9; }
+.peer.active { background:#fff0e5; box-shadow: inset 2px 0 0 var(--accent); }
+.empty { padding: 11px 6px; font-size: 12px; color: var(--muted); }
+
+.peer b { display:block; font-size: 13px; font-weight: 650; }
+.peer-copy { flex:1; min-width:0; }.peer-copy small { display:block; margin-top:3px; color:var(--muted); font-size:11px; }
+.device-avatar { width:30px; height:30px; display:grid; place-items:center; border-radius:10px; background:#f5dfce; color:#9b5638; font-weight:700; }
+.peer.has-invite { background: #fff3e9; }
+.peer.has-invite .peer-copy b { color: var(--accent); }
+.peer-badge { flex:none; min-width:18px; height:18px; border-radius:9px; background:var(--accent); color:#fff; font-size:11px; font-weight:600; display:grid; place-items:center; padding:0 5px; }
+
+.btn { border: 1px solid var(--line); background: #fffaf4; color: var(--fg); border-radius: 9px; padding: 7px 12px; font-size: 13px; cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; width: 100%; margin-top: 8px; }
+.btn.disconnect { background: #fff2ef; border-color: #e6b6ab; color: #ad5547; }
+.btn.primary:disabled { opacity: .4; cursor: not-allowed; }
+.btn.send { padding: 4px 10px; font-size: 12px; flex: none; }
+.btn.ok { background: var(--ok); border-color: var(--ok); color: #06281c; }
+.btn.x { background: transparent; border-color: var(--x); color: var(--x); padding: 2px 8px; }
+
+.files { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.file { display: flex; align-items: center; gap: 8px; font-size: 13px; background: #14171d; padding: 6px 8px; border-radius: 6px; }
+.file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file small { color: var(--muted); margin-left: auto; flex: none; }
+
+.invites { display: flex; flex-direction: column; gap: 8px; }
+.invite { display: flex; flex-direction: column; gap: 8px; background: #1f1a12; border: 1px solid #4a3a16; border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+.in-head { font-size: 13px; }
+.inv-files { display: flex; flex-direction: column; gap: 4px; background: #14171d; border-radius: 6px; padding: 6px 8px; }
+.inv-file { display: flex; align-items: center; gap: 8px; }
+.inv-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inv-file small { color: var(--muted); margin-left: auto; flex: none; }
+.inv-actions { display: flex; gap: 8px; }
+.inv-actions .btn { flex: 1; }
+
+.transfers { display: flex; flex-direction: column; gap: 8px; }
+.transfer { font-size: 13px; }
+.t-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.t-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%; }
+.bar { height: 6px; background: #f0e7df; border-radius: 4px; overflow: hidden; }
+.fill { height: 100%; background: var(--accent); transition: width .1s; }
+.t-badge.done { color: var(--ok); }
+.t-badge.error { color: var(--x); }
+.t-badge.writing { color: var(--accent); }
+footer { margin-top: 16px; font-size: 11px; color: var(--muted); text-align: center; }
+.native-shell { min-height: 640px; }
+.app-header { display:flex; align-items:center; height:58px; gap:10px; margin-bottom:18px; padding:0 4px; border-bottom:1px solid var(--line); }
+.brand-mark { display:grid; place-items:center; width:25px; height:25px; border-radius:8px; background:#d77a4f; color:#fff; font-size:13px; }.app-header .brand{font-size:15px;}.connection{margin-left:auto;font-size:12px;color:var(--muted)}.connection.connected{color:var(--ok)}
+.connection-button{margin-left:auto;white-space:nowrap}.connection-panel{margin:0 0 20px;padding:0 4px 12px;border-bottom:1px solid var(--line)}.connection-summary{display:flex;align-items:center;gap:22px;font-size:12px;color:var(--muted)}.connection-summary b{color:var(--fg)}.connection-summary .connection{margin:0}.collapse{margin-left:auto;border:0;background:transparent;color:var(--muted);font:inherit;cursor:pointer}.connection-form{display:grid;grid-template-columns:1fr 1.35fr 1fr 1fr auto;gap:12px;align-items:end;margin-top:12px}.connection-form label{margin:0}.connection-form .btn{height:34px;margin:0;width:auto;min-width:72px}.latency{color:#9b7358}
+.secret-input{display:flex;align-items:center;position:relative}.secret-input input{padding-right:34px}.secret-input input::-ms-reveal,.secret-input input::-ms-clear{display:none}.secret-toggle{position:absolute;right:3px;width:28px;height:28px;border:0;background:transparent;color:var(--muted);cursor:pointer}.secret-toggle svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.secret-toggle:hover{color:var(--accent)}
+.native-sidebar { border:1px solid var(--line); border-radius:16px; background:var(--card); padding:12px; min-height:500px; }.side-title{display:flex;justify-content:space-between;align-items:center;padding:4px 4px 10px;color:var(--fg);font-weight:650}.side-title small{color:var(--muted);font-size:11px;font-weight:400}.sidebar-footer{margin-top:auto;padding:12px 4px 2px;border-top:1px solid var(--line)}.sidebar-footer label{margin:0}
+.native-main { gap:14px; }.hero { min-height:116px; }.eyebrow { color:var(--accent); font-size:12px; font-weight:650; }.hero-copy h1{font-size:21px;margin-top:5px}.hero-action{min-width:130px}.task-heading{display:flex;align-items:center;gap:8px;padding:4px 2px;font-weight:650}.task-heading small{color:var(--muted);font-size:11px;font-weight:400;margin-right:auto}.task-list{display:flex;flex-direction:column;gap:14px}.task-list .transfer{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;flex-shrink:0;transition:border-color .15s,box-shadow .15s}.task-list .transfer:hover{border-color:#d7b9a4;box-shadow:0 3px 12px #7d584112}.task-list .transfer p{margin:8px 0;color:var(--muted);font-size:12px}.task-empty{border:1px dashed #decbbc;border-radius:14px;background:#fffaf4}.browser-connection{margin-bottom:20px}.browser-connection .connection-summary{gap:20px}.browser-connection .connection{margin:0;color:var(--muted)}.browser-connection .connection.connected{color:var(--ok)}.browser-connection .collapse{color:var(--accent)}.browser-connection:not(.expanded) .connection-form{display:none}.browser-connection .connection-form{grid-template-columns:1fr 1.35fr 1fr 1fr;margin-top:8px}.browser-connection .connection-form input{min-height:32px}.browser-layout .invite{background:var(--card);border-color:var(--line);border-radius:14px;color:var(--fg);padding:14px}.browser-layout .invites{gap:14px}.browser-layout .inv-file,.browser-layout .inv-files{background:#fffaf4;color:var(--fg)}
+.browser-connection .connection-form { grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) minmax(0,.85fr) minmax(0,1fr) auto; gap:10px; }
+.browser-connection .connection-form label { min-width:0; }
+.browser-connection .connection-form .btn { min-width:64px; height:34px; margin:0; }
+.conn-mode{display:flex;gap:16px;margin:0 0 6px}
+.conn-mode .radio{display:inline-flex;align-items:center;gap:5px;flex-direction:row;margin:0;color:var(--fg);font-size:12px;white-space:nowrap;cursor:pointer}
+.conn-mode .radio input{width:auto;min-height:0;margin:0}
+.conn-url{margin:0 0 8px}
+@media (max-width: 760px) {
+  .browser-connection .connection-form { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  #app { padding: 14px; }
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { position: static; }
+  .hero { align-items: stretch; flex-direction: column; }
+  .hero-action { width: 100%; }
+  .advanced-grid { grid-template-columns: 1fr; }
+}
+.task-card{border-radius:10px;padding:12px 14px;background:var(--card);border:1px solid var(--line);transition:border-color .15s,box-shadow .15s}.task-card:hover{border-color:#d7b9a4;box-shadow:0 3px 12px #7d584112}.task-head,.task-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}.task-head{margin-bottom:8px}.t-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.t-name small{color:var(--muted);font-size:10px}.status-tag{font-size:11px;padding:2px 8px;border-radius:999px;white-space:nowrap;background:#f0e7df;color:var(--muted)}
+/* Task-card transfer-path highlight: same row as the file name; P2P = green (direct), TURN = orange (relay, slow when bandwidth-limited) */
+.path-tag{font-size:11px;padding:2px 8px;border-radius:999px;white-space:nowrap;font-weight:600;border:1px solid transparent;flex:none}
+.path-tag[data-path="lan"]{color:var(--ok);background:#e6f5ec;border-color:#bfe3cd}
+.path-tag[data-path="wan"]{color:#2f6fb0;background:#e7f0fa;border-color:#c3d8ee}
+.path-tag[data-path="p2p"]{color:var(--ok);background:#e6f5ec;border-color:#bfe3cd}
+.path-tag[data-path="relay"]{color:var(--accent);background:#fbe9dd;border-color:#f3cdb4}.task-card.active .status-tag{color:var(--accent);background:#fbe9dd}.task-card.done .status-tag{color:var(--ok);background:#e3f1ea}.task-card.error .status-tag{color:var(--x);background:#f7e6e2}.task-card.pending{border-style:dashed}.task-card .bar{height:4px;margin:0 0 8px;background:#f0e7df;border-radius:999px;overflow:hidden}.task-card .fill{border-radius:999px;background:var(--accent);transition:width .1s;position:relative;overflow:hidden}.task-card.done .fill{background:var(--ok)}.task-card.error .fill{background:var(--x)}.task-foot .hint{font-family:Consolas,monospace;font-size:10px;color:var(--muted)}.task-card .action-layer{display:flex;align-items:center;gap:4px}.task-card .actions,.task-card .transfer-actions{display:inline-flex;gap:6px}.task-card button{font-size:12px;padding:4px 10px;height:26px;border-radius:6px;border:1px solid var(--line);background:#fffaf4;color:var(--fg);cursor:pointer}.task-card button:hover{border-color:var(--accent);color:var(--accent)}
+/* Resume-hint label: blue tone, independent of the state color, so it isn't overridden by .task-card.active/.done/.error */
+.status-tag.resume{color:#2f6bf0;background:#e7f0fa;border:1px solid #c3d8ee}
+/* Press feedback: JS adds .pressed (see ui/press-feedback.ts) so mouse and touch behave consistently;
+   cancel/reject use the red tone, pause/resume/delete use the theme orange tone. */
+.task-card button:active,.task-card button.pressed{border-color:var(--accent);color:var(--accent);background:#fff3e9}
+.task-card button:active[data-cancel],.task-card button.pressed[data-cancel],.task-card button:active[data-rej],.task-card button.pressed[data-rej]{border-color:var(--x);color:var(--x);background:#f7e6e2}
+.btn:active,.btn.pressed{transform:scale(.97);filter:brightness(.95)}
+/* Paused / cancelled: gray progress bar; cancelled text gets a strikethrough */
+/* Paused: blue-gray fill (one shade brighter than plain gray, otherwise the shimmer smears into a gray blob); cancelled stays dark gray */
+.task-card.paused .fill{background:#94a3b8}
+.task-card.cancelled{opacity:.65}
+.task-card.cancelled .fill{background:#6b7280}
+.task-card.cancelled .t-name{text-decoration:line-through;color:#6b7280}
+/* Active / paused: shimmer (moving highlight bar). Highlight color is taken from the --shine-* variables by state,
+   shared with mobile.css — both ends' progress-bar animation must speak the same visual language. */
+.task-card.active .fill,
+.task-card.paused .fill { overflow: hidden; }
+.task-card.active .fill::after,
+.task-card.paused .fill::after {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(90deg, transparent 0%, var(--shine-active) 50%, transparent 100%);
+  transform: translateX(-100%); animation: shimmer 1.3s ease-in-out infinite;
+}
+/* Paused: the blue-gray bar is darker and it's a user-initiated stop → the highlight turns cool white and slows down,
+   so it reads as "stopped halfway" rather than a dead, broken bar. */
+.task-card.paused .fill::after {
+  animation-duration: 1.9s;
+  background: linear-gradient(90deg, transparent 0%, var(--shine-paused) 50%, transparent 100%);
+}
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+/* Third layer: detail text (percent / speed / remaining time / save path / error info) */
+/* Task-card fourth layer: a bottom row — left column (detail/hint) flexes to fill, right column (actions) pinned right.
+   Previously detail / note / actions were each left-aligned, so on wide cards "left was crowded, right was empty". */
+.task-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.task-detail{font-size:11px;color:#6b7280;margin:0;font-family:Consolas,ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task-detail .detail-pct{margin-right:6px;color:#374151;font-weight:600}
+/* A middle-dot separator after the percent (same shape as mobile.css's `${pct}% · …`, keeping both ends' readout structure consistent) */
+.task-detail .detail-pct::after{content:"·";margin-left:6px;color:#6b7280;font-weight:400}
+.task-detail .detail-size{margin-right:6px;color:#6b7280}
+.task-detail .detail-rate{color:#6b7280}
+/* Task-level hint row: writing / completed / send-failed, etc.; hidden via [hidden] when empty */
+.task-note{font-size:11px;line-height:1.5;color:#6b7280;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task-actions{display:flex;gap:6px;flex-wrap:wrap;flex:none;align-items:center}
+.task-card .transfer-actions{display:inline-flex;gap:6px}
+/* Task section: tinted background zones + collapse / expand / independent scroll */
+.task-section{display:flex;flex-direction:column;gap:10px;background:var(--send-tint);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.task-section.recv-section{background:var(--recv-tint)}
+/* No more hard "show only first N" truncation: lists scroll internally. Expand/collapse now borrows whole-section height (see .browser-layout .task-section.collapsed-section) */
+/* Collapse button: a light-filled pill at the right of the title row (not a borderless ghost style, to avoid looking "gone") */
+.task-toggle{border:1px solid var(--line);background:var(--card);color:var(--muted);font:inherit;font-size:11px;font-weight:400;line-height:1;cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;flex:none;white-space:nowrap}
+.task-toggle:hover{border-color:var(--accent);color:var(--accent)}
+.task-toggle-arrow{display:inline-block;font-size:10px;transition:transform .2s ease}
+.task-toggle.open .task-toggle-arrow{transform:rotate(180deg)}
+/* "New task to receive" blinking alert: on the same row as "N transfer tasks", the user opens and handles it themselves */
+.task-alert{border:1px solid var(--accent);background:var(--accent);color:#fff;font:inherit;font-size:11px;font-weight:400;line-height:1;cursor:pointer;display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;flex:none;white-space:nowrap;animation:task-alert-blink 1.2s ease-in-out infinite}
+.task-alert:hover{filter:brightness(1.06)}
+@keyframes task-alert-blink{0%,100%{opacity:1}50%{opacity:.4}}
+@media (prefers-reduced-motion: reduce){.task-alert{animation:none}}
+/* Invite cards aren't inside the collapse container, so they must cap their own height; otherwise multiple invites stretch the recv section endlessly */
+.invites{max-height:240px;overflow-y:auto}
+
+/* hero (select files and send): two stacked rows on each side of the button, the whole row vertically centered */
+.hero{gap:10px;min-height:0;flex-wrap:wrap}
+.card.hero{padding:10px 14px}
+.hero-action{min-width:0}
+.hero-action .btn.primary{width:auto;margin-top:0;height:32px;min-height:0;padding:0 16px;white-space:nowrap}
+
+/* Browser-only UI: button centered (each side takes half width), two rows per side, consistent line-height aligned row by row */
+.browser-layout .hero-copy{min-width:0}
+.browser-layout .hero-copy h1{font-size:16px;line-height:20px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.browser-layout .hero-copy p{font-size:11px;line-height:15px;margin:0;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.browser-layout .hero-meta{display:flex;flex-direction:column;align-items:flex-end;min-width:0}
+.browser-layout .hero-meta .eyebrow{display:inline-block;vertical-align:middle;line-height:20px;padding:0 8px;border-radius:999px;background:#f7e6da;font-size:11px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.browser-layout .hero-meta .hint{font-size:11px;line-height:15px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+
+/* Wide screen: the two side groups each take half width → the middle button lands exactly centered */
+@media (min-width:761px){
+  .browser-layout .hero-copy{flex:1 1 0}
+  .browser-layout .hero-meta{flex:1 1 0}
+}
+
+/* ---- Section background colors: only the top bar and task sections are tinted; everything else is white cards (--card) ---- */
+/* The top bar (header) is the only "neutral tint" area; the adjacent connection panel must be a white card,
+   otherwise the two beige blocks stack with too-small lightness difference and look "misaligned / like one block". */
+.connection-panel.browser-connection{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:18px}
+/* Diagnostics collapse: white card, no longer tinted; sidebar / hero also use the default --card (white) */
+details.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:0}
+
+/* Bottom-left "send rate limit": changed to "text + input + unit" on one row (default label is stacked, input full-width).
+   Width is clamped within the --card sidebar; the input is fixed at 78px, the row never wraps. */
+.browser-layout .sidebar-footer .rate-row{display:flex;flex-direction:row;align-items:center;gap:8px;margin:0;flex-wrap:nowrap}
+.browser-layout .sidebar-footer .rate-row .rate-label{flex:none;white-space:nowrap;font-size:12px;color:var(--muted)}
+.browser-layout .sidebar-footer .rate-row input{width:78px;min-width:0;flex:none;text-align:center;min-height:32px;padding:4px 6px}
+.browser-layout .sidebar-footer .rate-row .rate-unit{flex:none;white-space:nowrap;font-size:12px;color:var(--muted)}
+
+/* Bottom of the left sidebar: the send-file area (drag + click to pick), compact, sits below the device list and above the rate limit */
+.browser-layout #peers{flex:1 1 auto;min-height:0;overflow-y:auto}
+.send-dock{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:12px;margin-top:8px}
+.dropzone{display:flex;flex-direction:column;align-items:center;gap:4px;padding:18px 12px;border:1.5px dashed var(--line);border-radius:12px;background:#fafafa;color:var(--muted);text-align:center;transition:border-color .15s,background .15s}
+.dropzone.ready{border-color:var(--accent);background:#fffaf4;cursor:pointer}
+.dropzone.ready:hover{background:#fff3e9}
+.dropzone.disabled{opacity:.55;cursor:not-allowed}
+.dropzone.ready.dragover{border-color:var(--accent);background:#fff0e5;box-shadow:inset 0 0 0 2px #d77a4f33}
+.dz-icon{font-size:22px;line-height:1;color:var(--accent)}
+.dz-text{font-size:13px;font-weight:600;color:var(--accent)}
+.dz-sub{font-size:11px;color:var(--accent)}
+/* Desktop browser: the right task area splits height evenly with the left column and scrolls internally, avoiding whole-page overflow */
+.browser-layout .native-main{max-height:calc(100dvh - 260px);min-height:520px;overflow:hidden}
+.browser-layout .send-section,.browser-layout .recv-section{flex:1 1 0;min-height:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden}
+.browser-layout .task-list{flex:none;min-height:auto;overflow:visible}
+.browser-layout .invites{max-height:none;overflow:visible}
+/* Dominant/strip: the focused side fills the height and the other collapses to a thin strip showing a summary; lists always scroll internally, page height is locked by .native-main */
+.browser-layout .task-section.dominant{flex:4 1 0;min-height:0}
+.browser-layout .task-section.strip{flex:1 1 0;min-height:0}
+.browser-layout .task-section.strip .task-list,
+.browser-layout .task-section.strip .invites{display:none}
+.task-section .section-summary{display:none;padding:8px 12px;font-size:12px;color:var(--muted);border-top:1px dashed var(--line)}
+.browser-layout .task-section.strip .section-summary{display:block}
+.recv-pill{display:inline-flex;align-items:center;gap:8px;color:var(--accent);font-weight:600}
+.recv-btn{font-size:11px;border:1px solid var(--accent);background:#fbe9dd;color:var(--accent);border-radius:6px;padding:2px 10px;cursor:pointer}
+.recv-btn:hover{background:var(--accent);color:#fff}
+
+/* ---- Access-token validity countdown (right side of the connection row) ----
+   disconnected/long-valid/old server = de-emphasized; under 10 minutes left = theme orange; expired = danger red.
+   Only changes color by data-ttl, never touches layout. */
+.connection-summary b[data-ttl="unknown"],
+.connection-summary b[data-ttl="permanent"]{color:var(--muted);font-weight:500}
+.connection-summary b[data-ttl="warn"]{color:var(--accent)}
+.connection-summary b[data-ttl="expired"]{color:var(--x)}
+
+/* ---- Tauri WebView desktop shell: single-screen, no scroll overflow ---- */
+/* body never scrolls; inner lists/device area scroll on their own; #app fills the viewport (no longer fixed 980px,
+   avoids a horizontal scrollbar when the webview client area is slightly narrower than the window) */
+body.tauri-shell { overflow: hidden; }
+body.tauri-shell #app {
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: 14px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+/* Desktop-shell full-height chain: #app is a flex column, but its only child #native-body (header / main / footer)
+   and main.native-shell are not flex, so .layout's flex:1 fails and the page bottom is left empty.
+   Add the two missing links so height flows from #app down to .layout, then grid stretches device/task areas to fill the viewport. */
+body.tauri-shell #native-body { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+body.tauri-shell .native-shell { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+/* grid single row stretches with container, making left device pane / right task pane equal-height and fill the viewport */
+body.tauri-shell .browser-layout { align-content: stretch; }
+body.tauri-shell header,
+body.tauri-shell .connection-panel,
+body.tauri-shell .status-banner:not([hidden]),
+body.tauri-shell footer { flex: none; }
+body.tauri-shell .layout { flex: 1 1 auto; min-height: 0; }
+body.tauri-shell .native-main,
+body.tauri-shell .native-sidebar { display:flex; flex-direction:column; flex:1 1 auto; max-height:none; min-height:0; overflow:hidden; }
+body.tauri-shell #peers,
+body.tauri-shell .task-list,
+body.tauri-shell .invites { overflow-y: auto; }
+body.tauri-shell .task-list::-webkit-scrollbar { width: 8px; }
+body.tauri-shell .task-list::-webkit-scrollbar-thumb { background: #d7b9a4; border-radius: 4px; }
+body.tauri-shell .task-list::-webkit-scrollbar-track { background: transparent; }
+body.tauri-shell footer { margin-top: auto; }
+
+/* ---- Desktop connection config panel (2026-09-24 design spec): expanded content left-aligned, compact controls ---- */
+body.tauri-shell .browser-connection.expanded .connection-form {
+  display: flex; flex-direction: column; gap: 12px; margin-top: 12px;
+  align-items: stretch; width: 100%; grid-template-columns: none;
+}
+/* label + control on same row: explicit .field-row structure (no reliance on label's anonymous flex item; stable under WebView) */
+body.tauri-shell .field-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+body.tauri-shell .field-row .field-label { flex: none; width: auto; font-size: 13px; }
+body.tauri-shell .field-row > input { flex: 1 1 auto; min-width: 0; }
+/* device-name input: reasonable fixed width, no infinite stretch */
+body.tauri-shell .field-row > .name-input { flex: 0 0 auto; width: 260px; }
+body.tauri-shell .connection-form .secret-input { display: flex; align-items: center; position: relative; flex: 1 1 auto; min-width: 0; margin: 0; }
+body.tauri-shell .secret-input input { flex: 1 1 auto; min-width: 0; width: auto; }
+body.tauri-shell .mode-row,
+body.tauri-shell .transport-row { display: flex; align-items: center; gap: 12px; }
+body.tauri-shell .field-label { flex: none; width: 68px; font-size: 12px; color: var(--muted); }
+/* flatten: no 3D border/shadow; solid color blocks alone distinguish selected state */
+body.tauri-shell .mode-chips { display: flex; gap: 6px; flex: none; background: #f0e7df; border-radius: 8px; padding: 3px; }
+body.tauri-shell .mode-chip { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none; min-height: 30px; padding: 5px 18px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 13px; cursor: pointer; }
+body.tauri-shell .mode-chip input { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; }
+body.tauri-shell .mode-chip.active { background: var(--accent); color: #fff; font-weight: 600; }
+body.tauri-shell .seg-container { display: flex; flex: none; gap: 6px; background: #f0e7df; border: 0; border-radius: 8px; padding: 3px; }
+body.tauri-shell .seg-option { flex: none; display: inline-flex; align-items: center; justify-content: center; min-height: 30px; padding: 5px 18px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 13px; cursor: pointer; }
+body.tauri-shell .seg-option input { position: absolute; opacity: 0; width: 0; height: 0; }
+body.tauri-shell .seg-option.active { background: var(--card); color: var(--fg); font-weight: 600; }
+body.tauri-shell .mode-panel { display: none; }
+body.tauri-shell .mode-panel.active { display: block; }
+/* signaling address + access token on same row (LAN DataChannel / public network share this panel) */
+body.tauri-shell .signaling-row { display: flex; gap: 12px; align-items: center; }
+body.tauri-shell .signaling-row .field-row { flex: 1 1 0; min-width: 0; }
+body.tauri-shell .auto-config { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px dashed #decbbc; border-radius: 12px; background: #fffaf4; }
+/* read-only items: discovery mode / NIC scan / discovery port / transfer port shown on one row */
+body.tauri-shell .auto-config-row { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+body.tauri-shell .auto-item { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+body.tauri-shell .auto-item .row-label { flex: none; width: auto; color: var(--muted); }
+body.tauri-shell .auto-item .row-value { color: var(--fg); text-align: left; }
+body.tauri-shell .readonly-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
+body.tauri-shell .row-label { flex: none; width: 68px; color: var(--muted); }
+body.tauri-shell .row-value { color: var(--fg); text-align: right; }
+body.tauri-shell .port-tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; background: #f0e7df; color: var(--fg); font-size: 12px; }
+body.tauri-shell .port-tag.error { background: #fcebeb; color: var(--x); }
+body.tauri-shell .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
+body.tauri-shell .dot.ok { background: var(--ok); }
+body.tauri-shell .mode-hint { padding: 10px 12px; border-radius: 10px; font-size: 12px; line-height: 1.5; }
+body.tauri-shell .mode-hint.normal { background: #f0f4f8; color: #4a5568; }
+body.tauri-shell .mode-hint.warn { background: #fffaf4; color: #8a5a3a; border: 1px solid #f3cdb4; }
+body.tauri-shell .mode-hint.error { background: #fcebeb; color: #8f2b26; border: 1px solid #f7c1c1; }
+body.tauri-shell .connect-btn { min-height: 38px; font-size: 14px; align-self: center; min-width: 180px; }

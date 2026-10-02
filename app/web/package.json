@@ -1,0 +1,33 @@
+{
+  "name": "p2p-transfer-web",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/transfer.test.mjs test/download-writer.test.mjs test/env.test.mjs test/token-ttl.test.mjs test/auth-labels.test.mjs test/ice-config.test.mjs test/status-level.test.mjs",
+    "test:writer": "node --test test/download-writer.test.mjs",
+    "test:env": "node --test test/env.test.mjs",
+    "test:ttl": "node --test test/token-ttl.test.mjs",
+    "test:auth": "node --test test/auth-labels.test.mjs",
+    "test:status": "node --test test/status-level.test.mjs",
+    "test:ice": "node --test test/ice-config.test.mjs",
+    "test:signaling": "npm --prefix ../server/signaling-server run build && node --test test/signaling.test.mjs",
+    "preview": "vite preview",
+    "signal": "npm --prefix ../server/signaling-server run dev",
+    "tauri:dev": "cd ../windows && tauri dev",
+    "tauri:build": "cd ../windows && tauri build"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-fs": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
+    "typescript": "^5.4.0",
+    "vite": "^5.2.0"
+  }
+}

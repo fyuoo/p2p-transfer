@@ -1,0 +1,390 @@
+:root {
+  --page: #F7F5F2;
+  --card: #FFFFFF;
+  --line: #E8E4DF;
+  --t1: #2D2A26;
+  --t2: #8C8580;
+  --t3: #B5AEA8;
+  --primary: #C96F4A;
+  --primarySoft: #FDF0EA;
+  --primaryBorder: #F0D5C8;
+  --success: #5B9A6F;
+  --successSoft: #EDF5EF;
+  --danger: #C75B4A;
+  --dangerSoft: #FBEDEA;
+  --dangerBorder: #F0D5CF;
+  --neutralSoft: #F5F2EF;
+  /* Region background tiers: page lightest → block mid → card brightest (same layering idea as desktop) */
+  --band: #F1ECE6;      /* top bar */
+  --panel: #F3EFE9;     /* connection card / transfer task area */
+  --cardWarm: #FFFCF8;  /* online-devices area (near-white warm) */
+  /* Progress-bar shimmer (highlight) colors: state-keyed, shared between desktop and mobile browsers.
+     WARNING: editing here must be mirrored in the other file's :root (styles.css / mobile.css each keep a copy). */
+  --shine-active: rgba(255, 238, 219, 0.82);  /* transferring: warm white, echoes the orange bar */
+  --shine-writing: rgba(233, 250, 240, 0.82); /* writing: pale green-white, same family as the green bar (mobile has this state) */
+  --shine-paused: rgba(240, 246, 255, 0.90);  /* paused: cool white, compensates for the gray-blue bar being dark */
+}
+
+* { box-sizing: border-box; }
+/* Hidden utility class: must carry !important —— because rules like .header-toggle set display,
+   which would override the browser default [hidden]{display:none}, leaving elements visible after JS adds hidden. */
+[hidden], .hidden { display: none !important; }
+html, body { margin: 0; -webkit-text-size-adjust: 100%; }
+body {
+  font-family: -apple-system, "Inter", "Segoe UI", system-ui, sans-serif;
+  background: var(--page);
+  color: var(--t1);
+}
+/* #app sets no width cap: the cap is delegated to content blocks (.m-header / .m-conn / .m-section),
+   all using "width:calc(100% - 32px) + max-width:calc(28rem - 32px) + margin:auto",
+   so the top bar's background and blocks like "online devices" stay strictly edge-aligned on both sides. */
+#app {
+  min-height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+  flex-direction: column;
+  background: var(--page);
+}
+
+/* progress-bar animation */
+.progress-fill { transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+/* Shimmer (moving highlight bar): animation params match desktop styles.css .task-card.active .fill::after
+   (1.3s ease-in-out, -100%→100%); highlight color is state-keyed via the --shine-* vars, same set on both ends:
+   transferring --shine-active (warm white) / writing --shine-writing (pale green-white) / paused --shine-paused (cool white, slow 1.9s). */
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+.shimmer { position: relative; overflow: hidden; }
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, var(--shine-active) 50%, transparent 100%);
+  transform: translateX(-100%);
+  animation: shimmer 1.3s ease-in-out infinite;
+}
+/* writing: bytes fully received and being written to disk —— pale green-white highlight, same family as the green bar */
+.task-card[data-state="writing"] .shimmer::after {
+  background: linear-gradient(90deg, transparent 0%, var(--shine-writing) 50%, transparent 100%);
+}
+
+/* cards */
+.task-card, .device-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.device-card { padding: 10px; display: flex; align-items: center; gap: 10px; touch-action: manipulation; }
+.device-card.selected {
+  border: 2px solid var(--primary);
+  background: var(--primarySoft);
+  padding: calc(10px - 1px);
+}
+.device-card.busy { opacity: 0.5; }
+
+/* ghost-outline button: compact sizing mirrors the desktop task buttons */
+.btn-ghost {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--t2);
+  touch-action: manipulation;
+  flex: 1;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-ghost:active { background: var(--neutralSoft); color: var(--t1); }
+.btn-ghost.primary { color: var(--primary); border-color: var(--primaryBorder); }
+.btn-ghost.primary:active { background: var(--primarySoft); }
+.btn-ghost.danger { color: var(--danger); border-color: var(--dangerBorder); }
+.btn-ghost.danger:active { background: var(--dangerSoft); }
+/* Press feedback: JS adds .pressed (see ui/press-feedback.ts).
+   iOS Safari only applies :active when the element itself carries a touch handler, but buttons rely on parent-delegated clicks,
+   so on mobile the press must be shown via this class, otherwise "tapped but nothing visibly happens". */
+.btn-ghost.pressed { background: var(--primarySoft); border-color: var(--primaryBorder); color: var(--primary); transform: scale(0.96); }
+.btn-ghost.primary.pressed { background: var(--primarySoft); border-color: var(--primaryBorder); color: var(--primary); }
+.btn-ghost.danger.pressed { background: var(--dangerSoft); border-color: var(--dangerBorder); color: var(--danger); transform: scale(0.96); }
+
+/* collapse-title-row right-side button: light-background pill (kept visible, not a borderless ghost) */
+.header-toggle {
+  font-size: 11px;
+  color: var(--t2);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  touch-action: manipulation;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+.header-toggle:active { background: var(--neutralSoft); color: var(--t1); }
+.header-toggle .arrow { display: inline-block; transition: transform 0.2s ease; font-size: 10px; }
+.header-toggle.expanded .arrow { transform: rotate(180deg); }
+
+/* scroll regions */
+.scroll-box {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+.scroll-box::-webkit-scrollbar { width: 4px; }
+.scroll-box::-webkit-scrollbar-track { background: transparent; }
+.scroll-box::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+
+/* connection-detail collapse */
+#connDetail {
+  transition: max-height 0.2s ease, opacity 0.2s ease;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+}
+#connDetail.open { max-height: 220px; opacity: 1; }
+
+input { outline: none; -webkit-appearance: none; }
+input:focus { border-color: var(--primary) !important; }
+
+@media (hover: none) {
+  .task-actions { opacity: 1 !important; }
+}
+
+.empty-state {
+  background: var(--card);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  color: var(--t3);
+  font-size: 12px;
+}
+
+/* ============ layout ============ */
+.m-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Top-bar background shares the same width/edges with blocks like "online devices" (not full-bleed): 16px each side.
+     Padding 12px matches .m-section, aligning the logo / title left edge with block text.
+     Radius / border also align with .m-section (14px radius) so the top bar transitions visually into the blocks below. */
+  width: calc(100% - 32px);
+  max-width: calc(28rem - 32px);
+  /* Bottom margin 12px: matches .m-section's block spacing, leaving a small gap between the top bar and the "connection card".
+     Top margin stays 0 —— otherwise the status-bar area would reveal the page background. */
+  margin: 0 auto 12px;
+  padding: env(safe-area-inset-top) 12px 0;
+  min-height: calc(52px + env(safe-area-inset-top));
+  flex-shrink: 0;
+  background: var(--band);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+/* Environment hint banner (inserted once by mobile.ts renderBanner after signaling connects):
+   reuses .m-section's width system to keep edges aligned; but uses "white card + left color bar" without a new background tier
+   —— top bar/blocks already have three tiers (--band / --panel / --cardWarm); adding a fourth would inevitably clash.
+   padding-left 10px: plus the 3px left border = 13px, exactly .m-section's 1px border + 12px padding. */
+.m-banner {
+  width: calc(100% - 32px);
+  max-width: calc(28rem - 32px);
+  margin: 0 auto 12px;
+  padding: 10px 12px 10px 10px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--primary);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.m-banner.warn { border-left-color: var(--danger); }
+.m-banner-title { font-size: 13px; font-weight: 600; color: var(--t1); }
+.m-banner-text { margin-top: 3px; font-size: 12px; line-height: 1.55; color: var(--t2); }
+.m-brand { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.m-logo {
+  width: 24px; height: 24px; border-radius: 6px; background: var(--primary);
+  display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 700;
+}
+.m-title { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+/* Top-bar pills + status: sync with desktop browser header (brand + P2P transfer / end-to-end encryption + signaling status text) */
+.m-pills { display: flex; gap: 6px; flex-shrink: 0; }
+.m-pill { font-size: 10px; padding: 2px 7px; border-radius: 999px; background: var(--line); color: var(--t2); white-space: nowrap; }
+.m-pill.ok { color: var(--success); }
+/* Top-bar status pill: same semantics as desktop .status (data-state driven by engine facts, see ui/status-level.ts).
+   Only short words; the old impl showed full statusText, truncated by ellipsis on narrow screens losing info —— long sentences now live in the banner below. */
+.m-status {
+  margin-left: auto; flex: none;
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  background: var(--neutralSoft); color: var(--t2); white-space: nowrap;
+}
+.m-status .m-status-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex: none; }
+.m-status[data-state="ok"] { background: var(--successSoft); color: var(--success); }
+.m-status[data-state="busy"] { background: var(--primarySoft); color: var(--primary); }
+/* Connection-error banner: reuses .m-banner's skeleton without a new background tier (top bar/blocks already have three; a fourth would clash).
+   WARNING: the class name must NOT be .m-alert —— that name is already taken by the "new task to receive" blink alert (see .m-alert below),
+   reusing it would make that pill grow a dot and be switched to flex. The prefix dot uses ::before, saving a DOM node. */
+.m-alert-card { display: flex; align-items: flex-start; gap: 8px; }
+.m-alert-card .m-banner-text { margin-top: 0; color: var(--t1); }
+.m-alert-card::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--primary); margin-top: 5px; flex: none; }
+.m-alert-card.warn { border-left-color: var(--danger); }
+.m-alert-card.warn::before { background: var(--danger); }
+
+/* Content column uniformly capped and centered (the old 28rem cap from #app moves here, 16px gutters each side) */
+.m-conn { width: calc(100% - 32px); max-width: calc(28rem - 32px); margin: 0 auto; }
+.m-conn-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.m-conn-btn {
+  width: 100%; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between;
+  text-align: left; background: none; border: none; touch-action: manipulation;
+}
+.m-conn-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.m-conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+.m-conn-dot.off { background: var(--t3); }
+.m-conn-label { font-size: 12px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-conn-right { display: flex; align-items: center; gap: 4px; color: var(--t3); flex-shrink: 0; margin-left: 8px; }
+.m-conn-text { font-size: 11px; }
+.m-conn-detail { padding: 0 14px; }
+.m-conn-detail-inner { padding-bottom: 12px; display: flex; flex-direction: column; gap: 8px; }
+.m-field-label { display: block; font-size: 10px; color: var(--t3); margin-bottom: 4px; }
+.m-input {
+  width: 100%; height: 36px; background: var(--card); border-radius: 8px;
+  padding: 0 12px; font-size: 12px; border: 1px solid var(--line); color: var(--t1);
+}
+/* access token: right-side "eye" toggles plaintext (same shape as desktop .secret-input / .secret-toggle) */
+.m-secret { position: relative; display: block; }
+.m-secret .m-input { padding-right: 40px; }
+.m-secret .m-input::-ms-reveal, .m-secret .m-input::-ms-clear { display: none; }
+.m-secret-toggle {
+  position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
+  width: 36px; height: 32px; padding: 0; border: 0; background: transparent;
+  color: var(--t3); display: flex; align-items: center; justify-content: center;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s;
+}
+.m-secret-toggle svg {
+  width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.m-secret-toggle:active { color: var(--primary); }
+/* slash only appears when plaintext is revealed (tap to hide) */
+.m-secret-toggle svg .slash { display: none; }
+.m-secret-toggle.revealed svg .slash { display: inline; }
+.m-conn-action {
+  width: 100%; height: 36px; border-radius: 8px; border: 1px solid var(--line);
+  font-size: 12px; color: var(--t2); background: var(--card); touch-action: manipulation;
+}
+
+/* each region is its own block: light background + border + radius, white cards float above the region tint */
+.m-section {
+  width: calc(100% - 32px);
+  max-width: calc(28rem - 32px);
+  margin: 12px auto 0;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+.m-section.m-sec-devices { background: var(--cardWarm); }
+.m-section.m-sec-send { background: var(--primarySoft); border-color: var(--primaryBorder); }
+.m-section.m-sec-tasks { background: var(--panel); }
+.m-section-title {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding: 0 4px; min-height: 24px;
+}
+.m-section-title h2 { font-size: 12px; font-weight: 500; color: var(--t2); margin: 0; }
+.m-count { font-size: 11px; color: var(--t3); }
+/* "new task to receive" blink alert: same row as "N transfer tasks", tap to expand and scroll to the invite card */
+.m-alert {
+  border: 1px solid var(--primary); background: var(--primary); color: #fff;
+  font: inherit; font-size: 11px; font-weight: 400; line-height: 1;
+  padding: 4px 10px; border-radius: 999px; flex-shrink: 0; white-space: nowrap; cursor: pointer;
+  animation: m-alert-blink 1.2s ease-in-out infinite;
+}
+@keyframes m-alert-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+@media (prefers-reduced-motion: reduce) { .m-alert { animation: none; } }
+
+.m-device-list, .m-task-list { display: flex; flex-direction: column; gap: 8px; }
+
+.m-avatar {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--neutralSoft);
+  display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0;
+}
+.m-device-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-device-status { font-size: 11px; color: var(--t3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.m-device-check { color: var(--primary); font-size: 15px; flex-shrink: 0; }
+.m-device-body { min-width: 0; flex: 1; }
+
+.m-sendbtn {
+  width: 100%; height: 44px; border-radius: 12px; font-size: 13px; font-weight: 500;
+  border: none; touch-action: manipulation; transition: all 0.15s;
+}
+.m-sendbtn.disabled { background: var(--neutralSoft); color: var(--t3); }
+.m-sendbtn.primary { background: var(--primary); color: #fff; }
+.m-sendhint { font-size: 10px; color: var(--t3); text-align: center; margin-top: 6px; }
+
+/* task cards */
+.task-card { padding: 12px; }
+.task-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.task-name-wrap { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.task-dir { font-size: 12px; font-weight: 600; flex-shrink: 0; }
+.task-dir.send { color: var(--primary); }
+.task-dir.recv { color: var(--success); }
+.task-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.task-tag { font-size: 10px; padding: 2px 6px; border-radius: 999px; flex-shrink: 0; font-weight: 500; }
+/* task-card transfer-path highlight: same row as file name, P2P=green (direct) / TURN=orange (relayed, slow when bandwidth-limited) */
+.m-path-tag{font-size:10px;padding:2px 6px;border-radius:999px;flex-shrink:0;font-weight:600;border:1px solid transparent}
+.m-path-tag[data-path="lan"]{color:#4f9b78;background:#e6f5ec;border-color:#bfe3cd}
+.m-path-tag[data-path="wan"]{color:#2f6fb0;background:#e7f0fa;border-color:#c3d8ee}
+.m-path-tag[data-path="relay"]{color:#d77a4f;background:#fbe9dd;border-color:#f3cdb4}
+.tag-primary { background: var(--primarySoft); color: var(--primary); }
+.tag-success { background: var(--successSoft); color: var(--success); }
+.tag-neutral { background: var(--neutralSoft); color: var(--t2); }
+.tag-danger { background: var(--dangerSoft); color: var(--danger); }
+.task-peer { font-size: 12px; color: var(--t3); margin-bottom: 6px; }
+.task-bar { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; margin-bottom: 6px; }
+.task-bar-fill { height: 100%; border-radius: 999px; }
+.bar-primary { background: var(--primary); }
+.bar-success { background: var(--success); }
+.bar-t3 { background: var(--t3); }
+.bar-danger { background: var(--danger); }
+/* paused / cancelled: same pair of color values as desktop styles.css (#94a3b8 / #6b7280),
+   keeping one shared semantics across both ends: "orange=in progress, green=done, red=failed, gray-blue=paused, dark gray=cancelled". */
+.bar-paused { background: #94a3b8; }
+.bar-cancelled { background: #6b7280; }
+/* paused: highlight turns cool-white and slows to 1.9s (same set as desktop .task-card.paused .fill::after),
+   so the gray-blue bar still reads as alive rather than a dead bar. */
+.task-card.paused .task-bar-fill.shimmer::after {
+  animation-duration: 1.9s;
+  background: linear-gradient(90deg, transparent 0%, var(--shine-paused) 50%, transparent 100%);
+}
+/* cancelled: whole card dims + file name strikethrough, same handling as desktop .task-card.cancelled */
+.task-card.cancelled { opacity: 0.65; }
+.task-card.cancelled .task-name { text-decoration: line-through; color: var(--t2); }
+.task-detail { font-size: 12px; color: var(--t2); margin-bottom: 6px; font-variant-numeric: tabular-nums; }
+.task-note { font-size: 11px; color: var(--t3); margin-bottom: 10px; line-height: 1.4; }
+.task-note:empty { display: none; }
+.task-actions { display: flex; gap: 6px; }
+
+.m-spacer { height: 24px; flex-shrink: 0; }
+
+/* access-token validity: connection-row text changes color by remaining time (under 10 min → theme orange, expired → danger red) */
+.m-conn-label[data-ttl="warn"] { color: var(--primary); }
+.m-conn-label[data-ttl="expired"] { color: var(--danger); }
+
+.bg-warn {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: #b45309;
+  color: #fff;
+  text-align: center;
+  font-size: 14px;
+  padding: 10px 12px;
+  line-height: 1.4;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .2);
+}
